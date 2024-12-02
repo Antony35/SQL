@@ -39,7 +39,7 @@ SELECT AVG(salaire) AS "salaire_moyen" FROM personnes;
 SELECT count(id) AS "nb_personnes" FROM personnes;
 
 -- Afficher les acteurs avec un salaire entre 1 000 000 et 4 000 000 avec BETWEEN
-SELECT prenom, nom, salaire FROM personnes WHERE salaire BETWEEN 1000000 AND 4000000;
+SELECT prenom, nom, salaire FROM personnes WHERE salaire BETWEEN 1000001 AND 3999999;
 
 -- Proposer une requete avec UPPER() & LOWER()
 SELECT UPPER(prenom), LOWER(nom) FROM personnes;
