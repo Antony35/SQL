@@ -22,7 +22,7 @@ CREATE TABLE couleurs
 
 ALTER TABLE chats
     ADD
-        CONSTRAINT fk_chats FOREIGN KEY (region_id) REFERENCES couleurs (id);
+        CONSTRAINT fk_chats_couleurs FOREIGN KEY (region_id) REFERENCES couleurs (id);
 
 INSERT INTO couleurs(nom)
 VALUES ("marron"),

@@ -22,15 +22,16 @@ CREATE TABLE categories
     CONSTRAINT ph_categories PRIMARY KEY (id)
 ) ENGINE=InnoDB;
 
+INSERT INTO categories(nom)
+VALUES ("Sciences Fiction"),
+       ("Thriller");
+
+ALTER TABLE films ADD CONSTRAINT fk_film_categories FOREIGN KEY (category_id) REFERENCES categories(id);
+
 INSERT INTO films(titre, sortie, category_id)
 VALUES ("STAR WARS", '1977-05-25', 1),
        ("THE MATRIX", '1999-06-23', 1),
        ("PULP FICTION", '1994-10-26', 2),
-    ("DJANGO", '2001-10-26', NULL);
-
-INSERT INTO categories(nom)
-VALUES ("Sciences Fiction"),
-       ("Thriller");
 
 -- Prise en main de INNER JOIN (affiche que les entrer avec une category_id)
 SELECT titre, sortie, nom
