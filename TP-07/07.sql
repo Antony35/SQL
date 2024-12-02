@@ -78,7 +78,7 @@ GROUP BY films_has_acteurs.acteur_id;
 INSERT INTO films(nom)
 VALUES ("TITANIC");
 
--- Trouver le film qui n'a pas d'acteur
+-- Trouver le film qui n'a pas d'acteur.
 SELECT
     films.nom AS "film",
 films_has_acteurs.acteur_id
