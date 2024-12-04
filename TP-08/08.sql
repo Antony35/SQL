@@ -14,7 +14,7 @@ CREATE TABLE clients(
 ) ENGINE=InnoDB;
 
 CREATE TABLE fiches(
-    noFic INT NOT NULL AUTO_INCREMENT,
+    noFic INT NOT NULL AUTO_INCREMENT UNSIGNED,
     noCli INT NOT NULL,
     dateCrea DATE NOT NULL,
     datePaiement DATE,
@@ -65,7 +65,19 @@ CREATE TABLE tarifs(
     CONSTRAINT pk_tarifs PRIMARY KEY (codeTarif)
 ) ENGINE=InnoDB;
 
-ALTER TABLE fiches ADD CONSTRAINT fk_fiches FOREIGN KEY (noCli) REFERENCES clients(noFic);
+ALTER TABLE fiches 
+    ADD CONSTRAINT fk_fiches_clients FOREIGN KEY (noCli) REFERENCES clients(noCli);
+ALTER TABLE lignesFic 
+    ADD CONSTRAINT fk_lignesFic_fiches FOREIGN KEY (noFic) REFERENCES fiches(noFic),
+    ADD CONSTRAINT fk_lignesFic_articles FOREIGN KEY (refart) REFERENCES articles(refart);
+ALTER TABLE articles 
+    ADD CONSTRAINT fk_article_categories FOREIGN KEY (codeCate) REFERENCES categories(codeCate),
+    ADD CONSTRAINT fk_article_gammes FOREIGN KEY (codeGam) REFERENCES gammes(codeGam);
+ALTER TABLE grilleTarifs
+    ADD CONSTRAINT fk_grilleTarifs_gammes FOREIGN KEY (codeGam) REFERENCES gammes(codeGam),
+    ADD CONSTRAINT fk_grilleTarifs_categories FOREIGN KEY (codeCate) REFERENCES categories(codeCate),
+    ADD CONSTRAINT fk_grilleTarifs_tarifs FOREIGN KEY (codeTarif) REFERENCES tarifs(codeTarif);
+
 
 INSERT INTO clients (noCli, nom, prenom, adresse, cpo, ville) VALUES 
     (1, 'Albert', 'Anatole', 'Rue des accacias', '61000', 'Amiens'),
@@ -194,27 +206,36 @@ SELECT prenom, nom
 FROM clients;
 
 -- 3️⃣ Liste des fiches (n°, état) pour les clients (nom, prénom) qui habitent en Loire Atlantique (44)
-SELECT noFic, etat, nom, prenom
+SELECT fiches.noFic, etat, nom, prenom
 FROM fiches
 INNER JOIN clients ON clients.noCli = fiches.noCli
 WHERE cpo LIKE "44%";
 
 -- 4️⃣ Détail de la fiche n°1002
-SELECT 
+SELECT DISTINCT
     fiches.noFic, 
-    clients.nom,
-    clients.prenom, 
+    nom,
+    prenom, 
     lignesFic.refart, 
-    articles.designation, 
-    lignesFic.depart,
-    lignesFic.retour,
-    tarifs.prixJour, 
-    DATEDIFF(depart, IFNULL(NOW(), retour)) * prixJour AS "montant"
+    designation, 
+    depart,
+    retour,
+    prixJour, 
+    COALESCE(
+        (DATEDIFF(retour, depart) + 1) * prixJour
+        (DATEDIFF(NOW(), depart) + 1) * prixJour
+    )  AS montant
 FROM fiches
-INNER JOIN clients ON cleint.noCli = fiches.noCli
+INNER JOIN clients ON clients.noCli = fiches.noCli
 INNER JOIN lignesFic ON lignesFic.noFic = fiches.noFic
 INNER JOIN articles ON articles.refart = lignesFic.refart
-INNER JOIN categories ON categories.codeCate = articles.codeCate
-INNER JOIN grilleTarifs ON grilleTarifs.codeCate = categories.codeCate
+INNER JOIN grilleTarifs ON (articles.codeGam = grilleTarifs.codeGam AND articles.codeCate = grilleTarifs.codeCate)
 INNER JOIN tarifs ON tarifs.codeTarif = grilleTarifs.codeTarif
-WHERE noFic = "1002";
+WHERE fiches.noFic = "1002";
+
+-- 5️⃣ Prix journalier moyen de location par gamme
+SELECT gammes.libelle, AVG(tarifs.prixJour)
+FROM gammes 
+INNER JOIN grilleTarifs ON gammes.codeGam = grilleTarifs.codeGam
+INNER JOIN tarifs.codeTarif ON tarifs.codeTarif = grilleTarifs.codeTarif
+GROUP BY gammes.libelle;
