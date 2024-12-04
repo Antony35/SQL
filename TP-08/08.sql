@@ -28,7 +28,7 @@ CREATE TABLE lignesFic(
     refart CHAR(8) NOT NULL,
     depart DATE NOT NULL,
     retour DATE,
-    CONSTRAINT pk_lignesFic PRIMARY KEY (noLig)
+    CONSTRAINT pk_lignesFic PRIMARY KEY (noLig, noFic)
 ) ENGINE=InnoDB;
 
 CREATE TABLE articles(
@@ -64,6 +64,8 @@ CREATE TABLE tarifs(
     prixJour DECIMAL(5, 0) NOT NULL,
     CONSTRAINT pk_tarifs PRIMARY KEY (codeTarif)
 ) ENGINE=InnoDB;
+
+ALTER TABLE fiches ADD CONSTRAINT fk_fiches FOREIGN KEY (noCli) REFERENCES clients(noFic);
 
 INSERT INTO clients (noCli, nom, prenom, adresse, cpo, ville) VALUES 
     (1, 'Albert', 'Anatole', 'Rue des accacias', '61000', 'Amiens'),
@@ -181,3 +183,38 @@ INSERT INTO lignesFic (noFic, noLig,  refart, depart, retour) VALUES
     (1007, 2, 'F05', DATE_SUB(NOW(),INTERVAL  3 DAY), NULL),
     (1007, 4, 'S02', DATE_SUB(NOW(),INTERVAL  0 DAY), NULL),
     (1008, 1, 'S01', DATE_SUB(NOW(),INTERVAL  0 DAY), NULL);
+
+-- 1️⃣ Liste des clients (toutes les informations) dont le nom commence par un D
+SELECT noCli, nom, prenom, adresse, cpo, ville
+FROM clients
+WHERE nom LIKE "D%";
+
+-- 2️⃣ Nom et prénom de tous les clients
+SELECT prenom, nom
+FROM clients;
+
+-- 3️⃣ Liste des fiches (n°, état) pour les clients (nom, prénom) qui habitent en Loire Atlantique (44)
+SELECT noFic, etat, nom, prenom
+FROM fiches
+INNER JOIN clients ON clients.noCli = fiches.noCli
+WHERE cpo LIKE "44%";
+
+-- 4️⃣ Détail de la fiche n°1002
+SELECT 
+    fiches.noFic, 
+    clients.nom,
+    clients.prenom, 
+    lignesFic.refart, 
+    articles.designation, 
+    lignesFic.depart,
+    lignesFic.retour,
+    tarifs.prixJour, 
+    DATEDIFF(depart, IFNULL(NOW(), retour)) * prixJour AS "montant"
+FROM fiches
+INNER JOIN clients ON cleint.noCli = fiches.noCli
+INNER JOIN lignesFic ON lignesFic.noFic = fiches.noFic
+INNER JOIN articles ON articles.refart = lignesFic.refart
+INNER JOIN categories ON categories.codeCate = articles.codeCate
+INNER JOIN grilleTarifs ON grilleTarifs.codeCate = categories.codeCate
+INNER JOIN tarifs ON tarifs.codeTarif = grilleTarifs.codeTarif
+WHERE noFic = "1002";
