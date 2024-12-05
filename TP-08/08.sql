@@ -1,37 +1,44 @@
 DROP DATABASE IF EXISTS location_ski;
-CREATE DATABASE location_ski CHARACTER SET utf8mb4  COLLATE  utf8mb4_unicode_ci;
+
+CREATE DATABASE location_ski CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 USE location_ski;
 
-CREATE TABLE clients(
-    noCli INT NOT NULL AUTO_INCREMENT,
+CREATE TABLE clients (
+    -- UNSIGNED force l'utilisation de nombre positif => petite optimisation
+    noCli INT UNSIGNED NOT NULL AUTO_INCREMENT,
     nom VARCHAR(30) NOT NULL,
     prenom VARCHAR(30),
     adresse VARCHAR(120),
     cpo VARCHAR(5) NOT NULL,
-    ville VARCHAR(80),
-    CONSTRAINT pk_clients PRIMARY KEY (noCli)
+    ville VARCHAR(80) NOT NULL,
+    -- pas d'obligation de déclarer une contrainte et de la nommer => SQL fait tout seul comme un grand
+    -- attention, le nommage automatique de SQL laisse vraiment à désirer, soyez sur de ne jamais avoir à appeler une contrainte
+    PRIMARY KEY (noCli)
 ) ENGINE=InnoDB;
 
-CREATE TABLE fiches(
-    noFic INT NOT NULL AUTO_INCREMENT UNSIGNED,
-    noCli INT NOT NULL,
+CREATE TABLE fiches (
+    noFic INT NOT NULL AUTO_INCREMENT,
+    -- attention, clients.noCli est UNSIGNED, vous devez le déclarer ici aussi
+    noCli INT UNSIGNED NOT NULL,
     dateCrea DATE NOT NULL,
     datePaiement DATE,
-    etat ENUM("SO", "EC", "RE"),
+    -- 3 valeurs possibles uniquement : "En Cours", "Rendu", "Soldé". Classique dans la mise en place de facture / devis
+    etat ENUM( "EC", "RE", "SO") NOT NULL DEFAULT "EC",
     CONSTRAINT pk_fiches PRIMARY KEY (noFic)
 ) ENGINE=InnoDB;
 
-CREATE TABLE lignesFic(
+CREATE TABLE lignesfic(
     noLig INT NOT NULL AUTO_INCREMENT,
     noFic INT NOT NULL,
     refart CHAR(8) NOT NULL,
     depart DATE NOT NULL,
     retour DATE,
+    -- table de jointure => double clef primaire
     CONSTRAINT pk_lignesFic PRIMARY KEY (noLig, noFic)
 ) ENGINE=InnoDB;
 
-CREATE TABLE articles(
+CREATE TABLE articles (
     refart CHAR(8) NOT NULL,
     designation VARCHAR(80) NOT NULL,
     codeGam CHAR(5),
@@ -39,45 +46,61 @@ CREATE TABLE articles(
     CONSTRAINT pk_articles PRIMARY KEY (refart)
 ) ENGINE=InnoDB;
 
-CREATE TABLE categories(
+CREATE TABLE grilletarifs (
+    codeGam CHAR(5) NOT NULL,
     codeCate CHAR(5) NOT NULL,
-    libelle VARCHAR(30) NOT NULL,
-    CONSTRAINT pk_categories PRIMARY KEY (codeCate)
+    codeTarif CHAR(5),
+    -- table de jointure => double clef primaire
+    CONSTRAINT pk_grilletarifs PRIMARY KEY (codeGam, codeCate)
 ) ENGINE=InnoDB;
 
-CREATE TABLE gammes(
+CREATE TABLE gammes (
     codeGam CHAR(5) NOT NULL,
     libelle VARCHAR(45) NOT NULL,
     CONSTRAINT pk_gammes PRIMARY KEY (codeGam)
 ) ENGINE=InnoDB;
 
-CREATE TABLE grilleTarifs(
-    codeGam CHAR(5) NOT NULL,
+CREATE TABLE categories (
     codeCate CHAR(5) NOT NULL,
-    codeTarif CHAR(5),
-    CONSTRAINT pk_grilleTarifs PRIMARY KEY (codeGam, codeCate)
+    libelle VARCHAR(30) NOT NULL,
+    CONSTRAINT pk_categories PRIMARY KEY (codeCate)
 ) ENGINE=InnoDB;
 
-CREATE TABLE tarifs(
+CREATE TABLE tarifs (
     codeTarif CHAR(5) NOT NULL,
     libelle CHAR(30) NOT NULL,
-    prixJour DECIMAL(5, 0) NOT NULL,
+    prixJour DECIMAL(5) NOT NULL,
     CONSTRAINT pk_tarifs PRIMARY KEY (codeTarif)
 ) ENGINE=InnoDB;
 
-ALTER TABLE fiches 
-    ADD CONSTRAINT fk_fiches_clients FOREIGN KEY (noCli) REFERENCES clients(noCli);
-ALTER TABLE lignesFic 
-    ADD CONSTRAINT fk_lignesFic_fiches FOREIGN KEY (noFic) REFERENCES fiches(noFic),
-    ADD CONSTRAINT fk_lignesFic_articles FOREIGN KEY (refart) REFERENCES articles(refart);
-ALTER TABLE articles 
-    ADD CONSTRAINT fk_article_categories FOREIGN KEY (codeCate) REFERENCES categories(codeCate),
-    ADD CONSTRAINT fk_article_gammes FOREIGN KEY (codeGam) REFERENCES gammes(codeGam);
-ALTER TABLE grilleTarifs
-    ADD CONSTRAINT fk_grilleTarifs_gammes FOREIGN KEY (codeGam) REFERENCES gammes(codeGam),
-    ADD CONSTRAINT fk_grilleTarifs_categories FOREIGN KEY (codeCate) REFERENCES categories(codeCate),
-    ADD CONSTRAINT fk_grilleTarifs_tarifs FOREIGN KEY (codeTarif) REFERENCES tarifs(codeTarif);
+ALTER TABLE grilletarifs ADD (
+    CONSTRAINT fk_grilletarifs_gammes FOREIGN KEY (codeGam) REFERENCES gammes(codeGam),
+    CONSTRAINT fk_grilletarifs_categories FOREIGN KEY (codeCate) REFERENCES categories(codeCate),
+    CONSTRAINT fk_grilletarifs_tarifs FOREIGN KEY (codeTarif) REFERENCES tarifs(codeTarif)
+);
 
+-- syntaxe alternative pour ALTER TABLE grilleTarifs
+
+-- ALTER TABLE grilletarifs 
+-- ADD CONSTRAINT fk_grilletarifs_gammes FOREIGN KEY (codeGam) REFERENCES gammes(codeGam)
+-- ADD CONSTRAINT fk_grilletarifs_categories FOREIGN KEY (codeCate) REFERENCES categories(codeCate)
+-- ADD CONSTRAINT fk_grilletarifs_tarifs FOREIGN KEY (codeTarif) REFERENCES tarifs(codeTarif);
+
+
+ALTER TABLE articles ADD (
+    CONSTRAINT fk_articles_categories FOREIGN KEY (codeCate) REFERENCES categories(codeCate),
+    CONSTRAINT fk_articles_gammes FOREIGN KEY (codeGam) REFERENCES gammes(codeGam)
+);
+
+ALTER TABLE lignesfic ADD  (
+    CONSTRAINT fk_lignesFic_articles FOREIGN KEY (refart) REFERENCES articles(refart),
+    CONSTRAINT fk_lignesFic_fiches FOREIGN KEY (noFic) REFERENCES fiches(noFic)
+);
+
+ALTER TABLE fiches ADD
+CONSTRAINT fk_fiches_clients FOREIGN KEY (noCli) REFERENCES clients(noCli);
+
+-- INSERTION DES DONNEES
 
 INSERT INTO clients (noCli, nom, prenom, adresse, cpo, ville) VALUES 
     (1, 'Albert', 'Anatole', 'Rue des accacias', '61000', 'Amiens'),
@@ -196,46 +219,206 @@ INSERT INTO lignesFic (noFic, noLig,  refart, depart, retour) VALUES
     (1007, 4, 'S02', DATE_SUB(NOW(),INTERVAL  0 DAY), NULL),
     (1008, 1, 'S01', DATE_SUB(NOW(),INTERVAL  0 DAY), NULL);
 
--- 1️⃣ Liste des clients (toutes les informations) dont le nom commence par un D
-SELECT noCli, nom, prenom, adresse, cpo, ville
+    USE location_ski;
+
+# 1
+SELECT  nocli,
+        nom,
+        prenom,
+        adresse,
+        cpo,
+        ville
 FROM clients
-WHERE nom LIKE "D%";
+WHERE nom LIKE "d%";
 
--- 2️⃣ Nom et prénom de tous les clients
-SELECT prenom, nom
-FROM clients;
+# 2
+SELECT nom, prenom FROM clients;
 
--- 3️⃣ Liste des fiches (n°, état) pour les clients (nom, prénom) qui habitent en Loire Atlantique (44)
-SELECT fiches.noFic, etat, nom, prenom
+# 3
+SELECT  fiches.noFic AS noFIc,
+        fiches.etat AS etat,
+        clients.nom AS nom,
+        clients.prenom AS prenom
 FROM fiches
-INNER JOIN clients ON clients.noCli = fiches.noCli
+INNER JOIN clients ON fiches.noCli=clients.noCli
 WHERE cpo LIKE "44%";
 
--- 4️⃣ Détail de la fiche n°1002
-SELECT DISTINCT
-    fiches.noFic, 
-    nom,
-    prenom, 
-    lignesFic.refart, 
-    designation, 
-    depart,
-    retour,
-    prixJour, 
-    COALESCE(
-        (DATEDIFF(retour, depart) + 1) * prixJour
-        (DATEDIFF(NOW(), depart) + 1) * prixJour
-    )  AS montant
-FROM fiches
-INNER JOIN clients ON clients.noCli = fiches.noCli
-INNER JOIN lignesFic ON lignesFic.noFic = fiches.noFic
-INNER JOIN articles ON articles.refart = lignesFic.refart
-INNER JOIN grilleTarifs ON (articles.codeGam = grilleTarifs.codeGam AND articles.codeCate = grilleTarifs.codeCate)
-INNER JOIN tarifs ON tarifs.codeTarif = grilleTarifs.codeTarif
-WHERE fiches.noFic = "1002";
+-- version réduite
+SELECT noFic, etat, nom, prenom
+FROM fiches 
+JOIN clients USING (noCli)
+WHERE cpo LIKE '44%';
 
--- 5️⃣ Prix journalier moyen de location par gamme
-SELECT gammes.libelle, AVG(tarifs.prixJour)
-FROM gammes 
-INNER JOIN grilleTarifs ON gammes.codeGam = grilleTarifs.codeGam
-INNER JOIN tarifs.codeTarif ON tarifs.codeTarif = grilleTarifs.codeTarif
-GROUP BY gammes.libelle;
+# 4
+SELECT  fiches.noFic AS noFic,
+        clients.nom AS nom,
+        clients.prenom AS prenom,
+        articles.refart AS refart,
+        articles.designation AS designation,
+        lignesFic.depart AS depart,
+        lignesFic.retour AS retour,
+        tarifs.prixJour AS prixJour,
+        -- affiche la valeur en premier argument si non null, sinon affiche la valeur en second argument
+        COALESCE(
+            -- DATDIFF => valeur le plus recente puis valeur la plus ancienne, sinon résultat négatif
+            (DATEDIFF(lignesfic.retour, lignesfic.depart) + 1) * tarifs.prixJour,
+            (DATEDIFF(NOW(), lignesfic.depart) + 1) * tarifs.prixJour
+        ) AS montant
+FROM fiches
+INNER JOIN clients ON fiches.noCli=clients.noCli
+INNER JOIN lignesfic ON fiches.noFic=lignesfic.noFic
+INNER JOIN articles ON lignesfic.refart=articles.refart
+INNER JOIN grilleTarifs ON (articles.codeGam=grilleTarifs.codeGam AND articles.codeCate=grilleTarifs.codeCate)
+INNER JOIN tarifs ON grilleTarifs.codeTarif=tarifs.codeTarif
+WHERE lignesFic.noFic=1002;
+
+-- version réduite
+SELECT  f.noFic AS noFic,
+        nom,
+        prenom,
+        a.refart AS refart,
+        designation,
+        depart,
+        retour,
+        prixJour,
+        COALESCE(
+            (DATEDIFF(retour, depart) + 1) * prixJour,
+            (DATEDIFF(NOW(), depart) + 1) * prixJour
+        ) AS montant
+FROM fiches f
+JOIN clients USING (noCli)
+JOIN lignesfic l USING (noFic)
+JOIN articles a USING (refart)
+JOIN grilleTarifs g ON (a.codeGam=g.codeGam AND a.codeCate=g.codeCate)
+JOIN tarifs USING (codeTarif)
+WHERE l.noFic=1002;
+
+# 5
+SELECT  gammes.libelle AS Gamme,
+        AVG(tarifs.prixJour) as TarifMoyen
+FROM grilletarifs 
+INNER JOIN gammes USING (codeGam)
+INNER JOIN tarifs USING (codeTarif)
+GROUP BY Gamme;
+
+# 6
+SELECT  fiches.noFic AS noFic,
+        clients.nom AS nom,
+        clients.prenom AS prenom,
+        articles.refart AS refart,
+        articles.designation AS designation,
+        lignesFic.depart AS depart,
+        lignesFic.retour AS retour,
+        tarifs.prixJour AS prixJour,
+        COALESCE(
+            (DATEDIFF(lignesfic.retour, lignesfic.depart) + 1) * tarifs.prixJour,
+            (DATEDIFF(NOW(), lignesfic.depart) + 1) * tarifs.prixJour
+        ) AS montant,
+        total
+FROM fiches
+INNER JOIN clients ON fiches.noCli=clients.noCli
+INNER JOIN lignesfic ON fiches.noFic=lignesfic.noFic
+INNER JOIN articles ON lignesfic.refart=articles.refart
+INNER JOIN grilleTarifs ON (articles.codeGam=grilleTarifs.codeGam AND articles.codeCate=grilleTarifs.codeCate)
+INNER JOIN tarifs ON grilleTarifs.codeTarif=tarifs.codeTarif
+INNER JOIN (
+    SELECT  lignesFic.noFic,
+            SUM(
+                COALESCE(
+                    (DATEDIFF(lignesfic.retour, lignesfic.depart) + 1) * tarifs.prixJour,
+                    (DATEDIFF(NOW(), lignesfic.depart) + 1) * tarifs.prixJour
+                )
+            ) AS total
+        FROM lignesFic
+        INNER JOIN articles ON lignesFic.refart=articles.refart
+        INNER JOIN grilleTarifs ON (articles.codeGam=grilleTarifs.codeGam AND articles.codeCate=grilleTarifs.codeCate)
+        INNER JOIN tarifs ON grilleTarifs.codeTarif=tarifs.codeTarif
+        WHERE lignesFic.noFic=1002
+        GROUP BY lignesFic.noFic
+) AS table_intermediaire ON table_intermediaire.noFic=fiches.noFIc
+WHERE lignesFic.noFic=1002;
+
+-- version réduite
+SELECT  f.noFic AS noFic,
+        nom, prenom, 
+	    a.refart AS refart, 
+        designation, depart, retour, prixJour,
+        COALESCE(
+            (DATEDIFF(retour, depart) + 1) * prixJour,
+            (DATEDIFF(NOW(), depart) + 1) * prixJour
+        ) AS montant, 
+        total
+FROM fiches f
+JOIN clients c USING (noCli)
+JOIN lignesfic l USING (noFic)
+JOIN articles a USING (refart)
+JOIN grilletarifs g ON (a.codeGam=g.codeGam AND a.codeCate=g.codeCate)
+JOIN tarifs t USING (codeTarif)
+JOIN (
+    SELECT  l.noFic,
+    SUM( 
+        COALESCE(
+            (DATEDIFF(retour, depart) + 1) * prixJour,
+            (DATEDIFF(NOW(), depart) + 1) * prixJour
+        )
+    ) as total
+    FROM 
+        lignesfic l
+        JOIN articles a USING (refart)
+        JOIN grilletarifs g ON (a.codeGam=g.codeGam AND a.codeCate=g.codeCate)
+        JOIN tarifs t USING (codeTarif)
+        WHERE l.noFic=1002
+        GROUP BY l.noFic 
+) _ USING (noFic);
+
+# 7
+SELECT c.libelle, g.libelle, t.libelle, prixJour
+FROM grilleTarifs gt
+	JOIN gammes g USING (codeGam)
+	JOIN categories c USING (codeCate)
+	JOIN tarifs t USING (codeTarif);
+
+# 8
+SELECT a.refart, designation, count(a.refart) nbLocation
+FROM lignesfic l 
+JOIN articles a USING (refart)
+WHERE a.codeCate='SURF'
+GROUP by a.refart;
+
+# 9
+SELECT  AVG(table_intermediaire.nb_lignes_par_fiche) AS nb_lignes_moyen_par_fiche
+FROM (
+    SELECT COUNT(noLig) AS nb_lignes_par_fiche
+    FROM lignesFic
+    GROUP BY noFic
+) table_intermediaire;
+
+-- version réduite
+SELECT AVG(nb_lignes_par_fiche) as nb_lignes_moyen_par_fiche
+FROM (
+		SELECT COUNT(noLig) AS nb_lignes_par_fiche
+		FROM lignesfic l 
+		GROUP BY noFic) info;
+
+# 10
+SELECT c.libelle, count(noFic)
+FROM lignesfic l 
+JOIN articles a USING (refart)
+JOIN categories c USING(codeCate)
+WHERE c.libelle IN ('Ski Alpin','Surf','Patinette')
+GROUP BY c.libelle;
+
+# 11
+SELECT AVG(MontantParFiche)
+FROM (
+	SELECT  noFic, 
+            SUM(
+                (DATEDIFF(
+                    IFNULL(retour, NOW() + 1), depart) + 1
+                ) * prixJour
+            ) AS MontantParfiche
+	FROM lignesfic l 
+	JOIN articles a USING (refart)
+	JOIN grilletarifs g ON (a.codeGam=g.codeGam AND a.codeCate=g.codeCate)
+	JOIN tarifs t USING (codeTarif)
+	GROUP BY noFic) AS info;

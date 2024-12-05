@@ -103,5 +103,16 @@ FROM factures;
 
 -- 5️⃣ Afficher la somme des factures en attente de paiement
 SELECT SUM(total) AS ca_total
-FROM factures;
-WHERE IFNULL(paiment_date); 
+FROM factures
+WHERE paiment_date IS NULL; 
+
+-- Afficher les factures en retard de paiment 30 jours max
+-- Avec le nombre de jours de retard
+SELECT f.ref_facture, DATEDIFF(NOW(), creation_date) AS ecart
+FROM factures f
+WHERE paiment_date IS NULL
+
+7️⃣ Ajouter une pénalité de 2 euros par jours de retard
+SELECT f.ref_facture, DATEDIFF(NOW(), creation_date) AS ecart, DATEDIFF(NOW(), creation_date) * 2 AS penalite
+FROM factures f
+WHERE paiment_date IS NULL
